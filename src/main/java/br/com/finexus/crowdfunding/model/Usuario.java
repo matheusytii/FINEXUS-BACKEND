@@ -20,7 +20,7 @@ public class Usuario {
     @Email
     @Column(nullable =  false, unique = true) //indica que email tem que ser unico
     private String email;
-    
+
     @NotBlank
     private  String senha;
 
@@ -45,5 +45,5 @@ public class Usuario {
     public void SetTipo ( TipoUsuario tipo){ this.tipo = tipo;}
 
 
-    
+
 }
