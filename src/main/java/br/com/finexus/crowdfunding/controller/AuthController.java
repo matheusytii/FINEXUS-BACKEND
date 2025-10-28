@@ -11,17 +11,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+//prefixar a rota como auth
 @RequestMapping("/auth")
 public class AuthController {
 
+    //injeção automatica do repository usuários
     @Autowired
     private UsuarioRepository usuarioRepository;
 
+    //injeção responsável por gera tokens JWT
     @Autowired
     private JwtUtil jwtUtil;
 
+    // Instasia por verificar a senha cripitografada
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    // faz o login e retorna o token JWT
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody Usuario loginRequest) {
         Usuario usuario = usuarioRepository.findByEmail(loginRequest.getEmail());
