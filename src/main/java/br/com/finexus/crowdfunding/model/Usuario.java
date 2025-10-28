@@ -20,12 +20,15 @@ public class Usuario {
     @Email
     @Column(nullable =  false, unique = true) //indica que email tem que ser unico
     private String email;
-    
+
     @NotBlank
     private  String senha;
 
     @Enumerated(EnumType.STRING) 
     private TipoUsuario tipo;
+
+    @Column(length = 14, unique = true)
+    private String cpf;
 
 
     // getters e setters
@@ -41,9 +44,12 @@ public class Usuario {
     public String getSenha (){return senha;}
     public void setSenha (String senha) { this.senha = senha;}
 
+    public String getCpf (){return cpf;}
+    public void setCpf(String cpf) {this.cpf = cpf;}
+
     public TipoUsuario getTipo(){return tipo;}
     public void SetTipo ( TipoUsuario tipo){ this.tipo = tipo;}
 
 
-    
+
 }
