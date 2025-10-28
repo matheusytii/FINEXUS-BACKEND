@@ -24,7 +24,7 @@ public class Usuario {
     @NotBlank
     private  String senha;
 
-    @Enumerated(EnumType.STRING) // indicar
+    @Enumerated(EnumType.STRING) 
     private TipoUsuario tipo;
 
 
