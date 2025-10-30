@@ -11,36 +11,62 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-//prefixar a rota como auth
-@RequestMapping("/auth")
+@RequestMapping("/autenticacao") // rota principal
 public class AuthController {
 
-    //injeção automatica do repository usuários
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    //injeção responsável por gera tokens JWT
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Instasia por verificar a senha cripitografada
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    // faz o login e retorna o token JWT
-    @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Usuario loginRequest) {
-        Usuario usuario = usuarioRepository.findByEmail(loginRequest.getEmail());
+    // 🧩 Cadastro de novo usuário (público)
+    @PostMapping("/cadastro")
+    public Map<String, Object> cadastrar(@RequestBody Usuario novoUsuario) {
+        Map<String, Object> resposta = new HashMap<>();
 
-        Map<String, Object> response = new HashMap<>();
+        if (usuarioRepository.findByEmail(novoUsuario.getEmail()) != null) {
+            resposta.put("erro", "Email já cadastrado");
+            return resposta;
+        }
 
-        if (usuario != null && passwordEncoder.matches(loginRequest.getSenha(), usuario.getSenha())) {
-            String token = jwtUtil.gerarToken(usuario.getEmail());
-            response.put("token", token);
-            response.put("tipo", usuario.getTipo());
-            return response;
+        // Criptografa a senha
+        novoUsuario.setSenha(passwordEncoder.encode(novoUsuario.getSenha()));
+
+        // Salva no banco
+        Usuario salvo = usuarioRepository.save(novoUsuario);
+
+        // ⚙️ Gera token com o tipo de usuário incluso
+        String token = jwtUtil.gerarToken(salvo.getEmail(), salvo.getTipo().name());
+
+        resposta.put("mensagem", "Usuário cadastrado com sucesso!");
+        resposta.put("token", token);
+        resposta.put("tipo", salvo.getTipo());
+        resposta.put("id", salvo.getId());
+
+        return resposta;
+    }
+
+    // 🔐 Login do usuário
+    @PostMapping("/entrar")
+    public Map<String, Object> entrar(@RequestBody Usuario dadosLogin) {
+        Usuario usuario = usuarioRepository.findByEmail(dadosLogin.getEmail());
+        Map<String, Object> resposta = new HashMap<>();
+
+        if (usuario != null && passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
+
+            // ⚙️ Gera token com role
+            String token = jwtUtil.gerarToken(usuario.getEmail(), usuario.getTipo().name());
+
+            resposta.put("token", token);
+            resposta.put("tipo", usuario.getTipo());
+            resposta.put("id", usuario.getId());
+            return resposta;
         } else {
-            response.put("erro", "Email ou senha inválidos");
-            return response;
+            resposta.put("erro", "Email ou senha inválidos");
+            return resposta;
         }
     }
 }

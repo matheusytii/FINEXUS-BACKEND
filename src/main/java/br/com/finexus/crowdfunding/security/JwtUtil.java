@@ -15,14 +15,16 @@ public class JwtUtil {
 
     private final Key key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
 
-    public String gerarToken(String email) {
-        return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-    }
+   public String gerarToken(String email, String tipoUsuario) {
+    return Jwts.builder()
+            .setSubject(email)
+            .claim("role", "ROLE_" + tipoUsuario) // 👈 aqui
+            .setIssuedAt(new Date())
+            .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+            .signWith(key, SignatureAlgorithm.HS256)
+            .compact();
+}
+
 
     public String validarToken(String token) {
         try {
