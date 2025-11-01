@@ -18,23 +18,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/autenticacao/cadastro").permitAll()
-                .requestMatchers(HttpMethod.POST, "/autenticacao/entrar").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/propostas/**").hasRole("TOMADOR")
-                .requestMatchers(HttpMethod.GET, "/propostas/**").hasRole("TOMADOR")
-                .requestMatchers(HttpMethod.PUT, "/propostas/**").hasRole("TOMADOR")
-                .requestMatchers(HttpMethod.DELETE, "/propostas/**").hasRole("TOMADOR")
-                 .requestMatchers(HttpMethod.POST, "/formularios/**").hasRole("TOMADOR")
-                .requestMatchers(HttpMethod.PUT, "/formularios/**").hasRole("TOMADOR")
-                .requestMatchers(HttpMethod.GET, "/formularios/**").hasRole("TOMADOR")
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/autenticacao/cadastro").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/autenticacao/entrar").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/propostas/**").permitAll()
+                        .requestMatchers("/investimentos/**").permitAll()
+                        .requestMatchers("/formularios/**").permitAll()
+                        .anyRequest().authenticated())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
