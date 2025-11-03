@@ -29,32 +29,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        if (header != null && header.startsWith("Bearer ")) {
-            String token = header.substring(7);
-            try {
-                Claims claims = Jwts.parserBuilder()
-                        .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8)))
-                        .build()
-                        .parseClaimsJws(token)
-                        .getBody();
-
-                String email = claims.getSubject();
-                String role = claims.get("role", String.class);
-
-                if (email != null && role != null) {
-                    var auth = new UsernamePasswordAuthenticationToken(
-                            email,
-                            null,
-                            Collections.singletonList(new SimpleGrantedAuthority(role))
-                    );
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                }
-
-            } catch (Exception e) {
-                System.out.println("⚠️ Token inválido: " + e.getMessage());
-            }
+        // 🔹 Se não houver token, apenas continua a cadeia (não bloqueia)
+        if (header == null || !header.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
         }
 
+        String token = header.substring(7);
+
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8)))
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String email = claims.getSubject();
+            String role = claims.get("role", String.class);
+
+            if (email != null && role != null) {
+                var auth = new UsernamePasswordAuthenticationToken(
+                        email,
+                        null,
+                        Collections.singletonList(new SimpleGrantedAuthority(role))
+                );
+                SecurityContextHolder.getContext().setAuthentication(auth);
+            }
+
+        } catch (Exception e) {
+            System.out.println("⚠️ Token inválido: " + e.getMessage());
+            // Continua o fluxo mesmo com token inválido, sem quebrar a requisição
+            SecurityContextHolder.clearContext();
+        }
+
+        // 🔹 Sempre continua o filtro
         filterChain.doFilter(request, response);
     }
 }

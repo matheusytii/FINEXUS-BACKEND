@@ -36,10 +36,10 @@ public class Usuario {
     public void setId (Long id){this.id= id;}
 
     public  String getNome() {return nome;}
-    public void SetNome (String nome) {this.nome = nome;}
+    public void setNome (String nome) {this.nome = nome;}
 
     public String getEmail () {return email;}
-    public void SetEmail(String email){ this.email= email;}
+    public void setEmail(String email){ this.email= email;}
 
     public String getSenha (){return senha;}
     public void setSenha (String senha) { this.senha = senha;}
@@ -48,7 +48,7 @@ public class Usuario {
     public void setCpf(String cpf) {this.cpf = cpf;}
 
     public TipoUsuario getTipo(){return tipo;}
-    public void SetTipo ( TipoUsuario tipo){ this.tipo = tipo;}
+    public void setTipo ( TipoUsuario tipo){ this.tipo = tipo;}
 
 
 

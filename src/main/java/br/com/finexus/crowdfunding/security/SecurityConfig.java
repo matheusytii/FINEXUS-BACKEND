@@ -23,12 +23,13 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/autenticacao/cadastro").permitAll()
                         .requestMatchers(HttpMethod.POST, "/autenticacao/entrar").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/usuarios").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/usuarios/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/propostas/**").permitAll()
                         .requestMatchers("/investimentos/**").permitAll()
                         .requestMatchers("/formularios/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/formularios/usuario/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
