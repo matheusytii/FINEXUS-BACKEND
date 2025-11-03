@@ -35,52 +35,63 @@ public class InvestimentoController {
     private UsuarioRepository usuarioRepository;
 
     // 📌 Criar investimento (gera boleto simulado)
-    @PostMapping
-    public ResponseEntity<?> investir(@RequestBody InvestimentoRequest request) {
-        Optional<Proposta> propostaOpt = propostaRepository.findById(request.getIdProposta());
-        Optional<Usuario> investidorOpt = usuarioRepository.findById(request.getIdInvestidor());
+  @PostMapping
+public ResponseEntity<?> investir(@RequestBody InvestimentoRequest request) {
+    Optional<Proposta> propostaOpt = propostaRepository.findById(request.getIdProposta());
+    Optional<Usuario> investidorOpt = usuarioRepository.findById(request.getIdInvestidor());
 
-        if (propostaOpt.isEmpty())
-            return ResponseEntity.badRequest().body("Proposta não encontrada.");
-        if (investidorOpt.isEmpty())
-            return ResponseEntity.badRequest().body("Investidor não encontrado.");
+    if (propostaOpt.isEmpty())
+        return ResponseEntity.badRequest().body("Proposta não encontrada.");
+    if (investidorOpt.isEmpty())
+        return ResponseEntity.badRequest().body("Investidor não encontrado.");
 
-        Proposta proposta = propostaOpt.get();
-        Usuario investidor = investidorOpt.get();
+    Proposta proposta = propostaOpt.get();
+    Usuario investidor = investidorOpt.get();
 
-        if (proposta.getStatus() != StatusProposta.ABERTA)
-            return ResponseEntity.badRequest().body("A proposta não está aberta para investimento.");
+    if (proposta.getStatus() != StatusProposta.ABERTA)
+        return ResponseEntity.badRequest().body("A proposta não está aberta para investimento.");
 
-        Double valor = request.getValor();
-        if (valor == null || valor <= 0)
-            return ResponseEntity.badRequest().body("Valor inválido para investimento.");
+    Double valor = request.getValor();
 
-        // Calcula total investido atual
-        double totalInvestido = proposta.getInvestimentos() == null
-                ? 0.0
-                : proposta.getInvestimentos().stream().mapToDouble(Investimento::getValorInvestido).sum();
-
-        if (valor > (proposta.getValorSolicitado() - totalInvestido))
-            return ResponseEntity.badRequest().body("O valor investido excede o necessário.");
-
-        // Cria investimento pendente
-        Investimento investimento = new Investimento();
-        investimento.setInvestidor(investidor);
-        investimento.setProposta(proposta);
-        investimento.setValorInvestido(valor);
-        investimento.setStatus(StatusInvestimento.PENDENTE);
-
-        // Gera QR Code fictício
-        String qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=BOLETO-" + UUID.randomUUID();
-        investimento.setQrCodeUrl(qrCodeUrl);
-
-        double rendimento = valor * (1 + (proposta.getTaxaJuros() / 100));
-        investimento.setRendimentoEsperado(rendimento);
-
-        investimentoRepository.save(investimento);
-
-        return ResponseEntity.ok(investimento);
+  
+    if (valor == null || valor.isNaN() || valor <= 0) {
+        return ResponseEntity.badRequest().body("O valor do investimento deve ser positivo e maior que zero.");
     }
+
+    double totalInvestido = proposta.getInvestimentos() == null
+            ? 0.0
+            : proposta.getInvestimentos().stream()
+                    .mapToDouble(Investimento::getValorInvestido)
+                    .sum();
+
+    double restante = proposta.getValorSolicitado() - totalInvestido;
+
+    if (restante <= 0) {
+        return ResponseEntity.badRequest().body("A proposta já atingiu o valor total solicitado.");
+    }
+
+    if (valor > restante) {
+        return ResponseEntity.badRequest().body(
+                String.format("O valor máximo disponível para investimento é de R$ %.2f", restante));
+    }
+
+    Investimento investimento = new Investimento();
+    investimento.setInvestidor(investidor);
+    investimento.setProposta(proposta);
+    investimento.setValorInvestido(valor);
+    investimento.setStatus(StatusInvestimento.PENDENTE);
+
+    // Gera QR Code fictício
+    String qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?data=BOLETO-" + UUID.randomUUID();
+    investimento.setQrCodeUrl(qrCodeUrl);
+
+    double rendimento = valor * (1 + (proposta.getTaxaJuros() / 100));
+    investimento.setRendimentoEsperado(rendimento);
+
+    investimentoRepository.save(investimento);
+
+    return ResponseEntity.ok(investimento);
+}
 
     // 📌 Confirmar pagamento (simula boleto pago)
     @PutMapping("/{id}/confirmar")
@@ -252,7 +263,7 @@ public class InvestimentoController {
                 ColumnText.showTextAligned(
                         cb,
                         Element.ALIGN_CENTER,
-                        new Phrase("Escaneie o QR Code acima para visualizar o boleto digital.", textFont),
+                        new Phrase("Escaneie o QR Code acima para Realizar o Pagamento via Pix.", textFont),
                         PageSize.A4.getWidth() / 2,
                         qrY - 30, // posição do texto abaixo do QR
                         0);

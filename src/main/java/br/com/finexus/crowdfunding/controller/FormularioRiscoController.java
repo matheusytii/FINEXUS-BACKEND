@@ -6,6 +6,7 @@ import br.com.finexus.crowdfunding.repository.FormularioRiscoRepository;
 import br.com.finexus.crowdfunding.repository.UsuarioRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +15,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/formularios")
+@CrossOrigin(origins = "*", allowedHeaders = "*") // 🔓 libera requisições externas (Postman, front etc)
 public class FormularioRiscoController {
 
     @Autowired
@@ -34,13 +36,20 @@ public class FormularioRiscoController {
             return ResponseEntity.badRequest().body("Usuário não encontrado.");
         }
 
-        formulario.setUsuario(usuarioOpt.get());
+        Usuario usuario = usuarioOpt.get();
 
-        // Avalia risco e perfil usando o método do modelo
+        // 🔒 Verifica se o usuário já possui formulário
+        Optional<FormularioRisco> formularioExistente = formularioRiscoRepository.findByUsuarioId(usuario.getId());
+        if (formularioExistente.isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Usuário já possui um formulário cadastrado. Edite o existente.");
+        }
+
+        formulario.setUsuario(usuario);
         formulario.avaliarRisco();
 
         formularioRiscoRepository.save(formulario);
-        return ResponseEntity.ok(formulario);
+        return ResponseEntity.status(HttpStatus.CREATED).body(formulario);
     }
 
     // ---------- Atualizar formulário existente ----------
@@ -57,8 +66,6 @@ public class FormularioRiscoController {
         formulario.setTempoDeAtividadeMeses(formularioAtualizado.getTempoDeAtividadeMeses());
         formulario.setPossuiGarantia(formularioAtualizado.getPossuiGarantia());
         formulario.setHistoricoInadimplencia(formularioAtualizado.getHistoricoInadimplencia());
-
-        // Avalia risco novamente
         formulario.avaliarRisco();
 
         formularioRiscoRepository.save(formulario);
@@ -67,14 +74,19 @@ public class FormularioRiscoController {
 
     // ---------- Buscar formulário por usuário ----------
     @GetMapping("/usuario/{idUsuario}")
-    public ResponseEntity<FormularioRisco> buscarPorUsuario(@PathVariable Long idUsuario) {
+    public ResponseEntity<?> buscarPorUsuario(@PathVariable Long idUsuario) {
         Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findByUsuarioId(idUsuario);
-        return formularioOpt.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+        if (formularioOpt.isPresent()) {
+            return ResponseEntity.ok(formularioOpt.get());
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Nenhum formulário encontrado para este usuário.");
+        }
     }
 
     // ---------- Listar todos os formulários ----------
     @GetMapping
-    public List<FormularioRisco> listarTodos() {
-        return formularioRiscoRepository.findAll();
+    public ResponseEntity<List<FormularioRisco>> listarTodos() {
+        return ResponseEntity.ok(formularioRiscoRepository.findAll());
     }
 }
