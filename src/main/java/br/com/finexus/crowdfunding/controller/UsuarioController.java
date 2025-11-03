@@ -1,5 +1,6 @@
 package br.com.finexus.crowdfunding.controller;
 
+import br.com.finexus.crowdfunding.dto.LoginRequest;
 import br.com.finexus.crowdfunding.model.Usuario;
 import br.com.finexus.crowdfunding.repository.UsuarioRepository;
 import br.com.finexus.crowdfunding.security.JwtUtil;
@@ -50,26 +51,27 @@ public class UsuarioController {
         return ResponseEntity.ok(resposta);
     }
 
-    // 🔐 LOGIN DO USUÁRIO (por CPF)
+    //  LOGIN DO USUÁRIO (por CPF)
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Usuario dadosLogin) {
-        Usuario usuario = usuarioRepository.findByCpf(dadosLogin.getCpf());
-        Map<String, Object> resposta = new HashMap<>();
+    public ResponseEntity<?> login(@RequestBody LoginRequest dadosLogin) {
 
-        if (usuario == null || !passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
-            resposta.put("erro", "CPF ou senha inválidos");
-            return ResponseEntity.status(401).body(resposta);
-        }
+    Usuario usuario = usuarioRepository.findByCpf(dadosLogin.getCpf());
+    Map<String, Object> resposta = new HashMap<>();
 
-        // Gera token JWT com CPF e tipo de usuário
-        String token = jwtUtil.gerarToken(usuario.getCpf(), usuario.getTipo().name());
-
-        resposta.put("token", token);
-        resposta.put("tipo", usuario.getTipo());
-        resposta.put("id", usuario.getId());
-
-        return ResponseEntity.ok(resposta);
+    if (usuario == null || !passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
+        resposta.put("erro", "CPF ou senha inválidos");
+        return ResponseEntity.status(401).body(resposta);
     }
+
+    String token = jwtUtil.gerarToken(usuario.getCpf(), usuario.getTipo().name());
+
+    resposta.put("token", token);
+    resposta.put("tipo", usuario.getTipo());
+    resposta.put("id", usuario.getId());
+
+    return ResponseEntity.ok(resposta);
+    }
+
 
     // 👥 LISTAR TODOS OS USUÁRIOS (rota protegida)
     @GetMapping
@@ -108,7 +110,7 @@ public class UsuarioController {
                 .orElse(ResponseEntity.status(404).body(Map.of("erro", "Usuário não encontrado")));
     }
 
-    // ❌ DELETAR CONTA DO USUÁRIO
+    // DELETAR CONTA DO USUÁRIO
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletar(@PathVariable Long id) {
         return usuarioRepository.findById(id)
