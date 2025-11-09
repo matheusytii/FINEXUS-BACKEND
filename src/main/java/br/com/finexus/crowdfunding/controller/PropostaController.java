@@ -2,19 +2,18 @@ package br.com.finexus.crowdfunding.controller;
 
 import br.com.finexus.crowdfunding.model.*;
 import br.com.finexus.crowdfunding.repository.*;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.CascadeType;
+import br.com.finexus.crowdfunding.service.AvaliacaoRiscoService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/propostas")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class PropostaController {
 
     @Autowired
@@ -26,117 +25,111 @@ public class PropostaController {
     @Autowired
     private FormularioRiscoRepository formularioRiscoRepository;
 
-    // Criar nova proposta (somente MEI, e com formulário de risco válido)
+    @Autowired
+    private AvaliacaoRiscoService avaliacaoRiscoService;
+
+    // 🧩 Criar nova proposta
     @PostMapping
     public ResponseEntity<?> criarProposta(@RequestBody Proposta proposta) {
         if (proposta.getSolicitante() == null || proposta.getSolicitante().getId() == null) {
-            return ResponseEntity.badRequest().body("Solicitante inválido.");
+            return ResponseEntity.badRequest().body("Usuário inválido.");
         }
 
-        Optional<Usuario> solicitanteOpt = usuarioRepository.findById(proposta.getSolicitante().getId());
-        if (solicitanteOpt.isEmpty() || solicitanteOpt.get().getTipo() != TipoUsuario.TOMADOR) {
-            return ResponseEntity.badRequest().body("Apenas usuários do tipo MEI podem criar propostas.");
+        Usuario usuario = usuarioRepository.findById(proposta.getSolicitante().getId())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+
+        proposta.setSolicitante(usuario);
+
+        if (usuario.getTipo() == null || !usuario.getTipo().name().equalsIgnoreCase("TOMADOR")) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Somente usuários do tipo TOMADOR podem criar propostas.");
         }
 
-        Usuario solicitante = solicitanteOpt.get();
-
-        // 🔍 Verifica se o usuário preencheu o formulário de risco
-        Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findByUsuarioId(solicitante.getId());
+        Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findByUsuarioId(usuario.getId());
         if (formularioOpt.isEmpty()) {
-            return ResponseEntity.badRequest()
-                    .body("É necessário preencher o formulário de risco antes de criar uma proposta.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Usuário precisa preencher o Formulário de Risco antes de criar uma proposta.");
         }
 
-        FormularioRisco formulario = formularioOpt.get();
-        String perfilRisco = formulario.getPerfilRisco();
+        List<Proposta> propostasAbertas = propostaRepository.findBySolicitanteId(usuario.getId())
+                .stream()
+                .filter(p -> p.getStatus() != null && p.getStatus().equals(StatusProposta.ABERTA))
+                .toList();
 
-        // ✅ Cria proposta com base no perfil de risco
-        proposta.setSolicitante(solicitante);
-        proposta.setPerfilRisco(perfilRisco);
+        if (propostasAbertas.size() >= 3) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Você já possui 3 propostas ativas. Feche uma proposta antes de criar uma nova.");
+        }
+
+        FormularioRisco form = formularioOpt.get();
+        proposta.setFormularioRisco(form);
         proposta.setStatus(StatusProposta.ABERTA);
-        proposta.setDataAbertura(LocalDate.now());
+        proposta.setDataCriacao(java.time.LocalDateTime.now());
 
-        // 🔹 Calcula taxa de juros automática baseada em perfil e prazo
-        double taxaBase;
-        switch (perfilRisco.toLowerCase()) {
-            case "baixo" -> taxaBase = 2.5;
-            case "médio" -> taxaBase = 5.5;
-            case "alto" -> taxaBase = 8.5; // agora não rejeita, apenas taxa maior
-            default -> taxaBase = 5.0;
-        }
+        // ⚡️ Cálculo da taxa e valor total
+        double taxaJuros = avaliacaoRiscoService.calcularTaxaJuros(form.getPerfilRisco(), proposta.getPrazoMeses());
+        proposta.setTaxaJuros(taxaJuros);
 
-        if (proposta.getPrazoMeses() != null) {
-            // Acrescenta 0,5% ao mês no juros por prazo adicional
-            taxaBase += proposta.getPrazoMeses() * 0.5;
-        }
+        double valorTotal = proposta.getValorSolicitado() * (1 + (taxaJuros / 100.0));
+        proposta.setValorTotalPagar(valorTotal);
 
-        proposta.setTaxaJuros(taxaBase);
-
-        // 🔹 Calcula o valor total a pagar (juros simples)
-        if (proposta.getValorSolicitado() != null && proposta.getPrazoMeses() != null) {
-            double valorTotal = proposta.getValorSolicitado() * (1 + (taxaBase / 100));
-            proposta.setValorTotal(valorTotal);
-        }
-
-        propostaRepository.save(proposta);
-        return ResponseEntity.ok(proposta);
+        Proposta salva = propostaRepository.save(proposta);
+        return ResponseEntity.status(HttpStatus.CREATED).body(salva);
     }
 
-    // Listar todas as propostas
-    @GetMapping
-    public List<Proposta> listar() {
-        return propostaRepository.findAll();
-    }
-
-    // Buscar por ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Proposta> buscarPorId(@PathVariable Long id) {
-        Optional<Proposta> proposta = propostaRepository.findById(id);
-        return proposta.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
-    }
-
-    // Listar propostas de um solicitante específico
+    // 🔍 Buscar propostas de um usuário
     @GetMapping("/usuario/{idUsuario}")
-    public ResponseEntity<List<Proposta>> listarPorUsuario(@PathVariable Long idUsuario) {
-        Optional<Usuario> usuarioOpt = usuarioRepository.findById(idUsuario);
-        if (usuarioOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> listarPorUsuario(@PathVariable Long idUsuario) {
+        List<Proposta> propostas = propostaRepository.findBySolicitanteId(idUsuario);
+        if (propostas.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Nenhuma proposta encontrada para este usuário.");
         }
-        return ResponseEntity.ok(propostaRepository.findBySolicitante(usuarioOpt.get()));
+        return ResponseEntity.ok(propostas);
     }
 
-    // Atualizar status (ex: aprovar)
+    @GetMapping("/{id}")
+public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
+    return propostaRepository.findById(id)
+            .<ResponseEntity<?>>map(ResponseEntity::ok)
+            .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Proposta não encontrada."));
+}
+
+    // ✏️ Atualizar status da proposta
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> atualizarStatus(@PathVariable Long id, @RequestBody Proposta propostaBody) {
+    public ResponseEntity<?> atualizarStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
         Optional<Proposta> propostaOpt = propostaRepository.findById(id);
         if (propostaOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Proposta não encontrada.");
         }
 
         Proposta proposta = propostaOpt.get();
-        StatusProposta status = propostaBody.getStatus();
+        String novoStatusStr = body.get("status");
 
-        if (status == StatusProposta.APROVADA && "Alto".equalsIgnoreCase(proposta.getPerfilRisco())) {
-            return ResponseEntity.badRequest().body("Não é possível aprovar propostas com risco alto.");
-        }
-
-        proposta.setStatus(status);
-        if (status == StatusProposta.APROVADA) {
-            proposta.setDataAprovacao(LocalDate.now());
+        try {
+            StatusProposta novoStatus = StatusProposta.valueOf(novoStatusStr.toUpperCase());
+            proposta.setStatus(novoStatus);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Status inválido: " + novoStatusStr);
         }
 
         propostaRepository.save(proposta);
         return ResponseEntity.ok(proposta);
     }
 
-    @OneToMany(mappedBy = "proposta", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Investimento> investimentos;
+    // 🗑️ Deletar proposta
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deletar(@PathVariable Long id) {
+        if (!propostaRepository.existsById(id)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Proposta não encontrada.");
+        }
 
-    public List<Investimento> getInvestimentos() {
-        return investimentos;
+        propostaRepository.deleteById(id);
+        return ResponseEntity.ok("Proposta deletada com sucesso!");
     }
 
-    public void setInvestimentos(List<Investimento> investimentos) {
-        this.investimentos = investimentos;
+    // 📋 Listar todas as propostas
+    @GetMapping
+    public ResponseEntity<List<Proposta>> listarTodas() {
+        return ResponseEntity.ok(propostaRepository.findAll());
     }
 }

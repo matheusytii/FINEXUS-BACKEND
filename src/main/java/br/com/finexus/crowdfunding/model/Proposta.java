@@ -2,8 +2,8 @@ package br.com.finexus.crowdfunding.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 @Entity
 @Table(name = "propostas")
@@ -14,69 +14,38 @@ public class Proposta {
     private Long id;
 
     private Double valorSolicitado;
-    private Double taxaJuros;
     private Integer prazoMeses;
-    private Double valorTotal;
-    private String perfilRisco;
-    private LocalDate dataAbertura;
-    private LocalDate dataAprovacao;
+
+    private String ramoNegocio;
+    private String tamanhoNegocio;
+    private LocalDate dataAberturaNegocio;
+    private String cnpj;
+    private String motivacaoAbertura;
+    private String motivoEmprestimo;
+
+    private LocalDateTime dataCriacao = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
-    private StatusProposta status;
+    private StatusProposta status = StatusProposta.ABERTA;
 
+    // 💰 Campos novos
+    private Double taxaJuros;       // Percentual anual baseado no perfil de risco
+    private Double valorTotalPagar; // Valor final com juros aplicados
+
+    // 📎 Relacionamento com Usuário (somente TOMADOR pode criar)
     @ManyToOne
-    @JoinColumn(name = "solicitante_id")
+    @JoinColumn(name = "usuario_id")
+    @JsonBackReference("usuario-proposta")
     private Usuario solicitante;
 
-    private Double valorRestante;
+    // 📎 Relacionamento com Formulário de Risco
+    @ManyToOne
+    @JoinColumn(name = "formulario_id")
+    private FormularioRisco formularioRisco;
 
-    // 🔹 Informações do negócio do MEI
-    private String ramoNegocio;            // Ex: "Alimentação", "Beleza", "Tecnologia"
-    private String tamanhoNegocio;         // Ex: "Individual", "Microempresa", etc.
-    private LocalDate dataAberturaNegocio; // Quando o negócio foi aberto
-    private String cnpj;                   // CNPJ do MEI
-    @Column(length = 1000)
-    private String motivacaoAbertura;      // Por que abriu o negócio (história pessoal ou oportunidade)
-
-    // 🔹 Motivo do empréstimo
-    @Column(length = 1500)
-    private String motivoEmprestimo;       // Ex: "Comprar novos equipamentos", "Reformar o ponto", etc.
-
-    @OneToMany(mappedBy = "proposta", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Investimento> investimentos = new ArrayList<>();
-
-    public Proposta() {
-        this.dataAbertura = LocalDate.now();
-        this.status = StatusProposta.ABERTA;
-    }
-
-    // 🔹 Métodos auxiliares
-    public void adicionarInvestimento(Investimento investimento) {
-        this.investimentos.add(investimento);
-        investimento.setProposta(this);
-        atualizarValorRestante();
-    }
-
-    public void removerInvestimento(Investimento investimento) {
-        this.investimentos.remove(investimento);
-        investimento.setProposta(null);
-        atualizarValorRestante();
-    }
-
-    public void atualizarValorRestante() {
-        double totalInvestido = investimentos.stream()
-                .mapToDouble(Investimento::getValorInvestido)
-                .sum();
-        this.valorRestante = Math.max(0, valorSolicitado - totalInvestido);
-    }
-
-    // 🔹 Getters e Setters
+    // ================== GETTERS E SETTERS ==================
     public Long getId() {
         return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public Double getValorSolicitado() {
@@ -85,15 +54,6 @@ public class Proposta {
 
     public void setValorSolicitado(Double valorSolicitado) {
         this.valorSolicitado = valorSolicitado;
-        atualizarValorRestante();
-    }
-
-    public Double getTaxaJuros() {
-        return taxaJuros;
-    }
-
-    public void setTaxaJuros(Double taxaJuros) {
-        this.taxaJuros = taxaJuros;
     }
 
     public Integer getPrazoMeses() {
@@ -102,71 +62,6 @@ public class Proposta {
 
     public void setPrazoMeses(Integer prazoMeses) {
         this.prazoMeses = prazoMeses;
-    }
-
-    public Double getValorTotal() {
-        return valorTotal;
-    }
-
-    public void setValorTotal(Double valorTotal) {
-        this.valorTotal = valorTotal;
-    }
-
-    public String getPerfilRisco() {
-        return perfilRisco;
-    }
-
-    public void setPerfilRisco(String perfilRisco) {
-        this.perfilRisco = perfilRisco;
-    }
-
-    public LocalDate getDataAbertura() {
-        return dataAbertura;
-    }
-
-    public void setDataAbertura(LocalDate dataAbertura) {
-        this.dataAbertura = dataAbertura;
-    }
-
-    public LocalDate getDataAprovacao() {
-        return dataAprovacao;
-    }
-
-    public void setDataAprovacao(LocalDate dataAprovacao) {
-        this.dataAprovacao = dataAprovacao;
-    }
-
-    public StatusProposta getStatus() {
-        return status;
-    }
-
-    public void setStatus(StatusProposta status) {
-        this.status = status;
-    }
-
-    public Usuario getSolicitante() {
-        return solicitante;
-    }
-
-    public void setSolicitante(Usuario solicitante) {
-        this.solicitante = solicitante;
-    }
-
-    public Double getValorRestante() {
-        return valorRestante;
-    }
-
-    public void setValorRestante(Double valorRestante) {
-        this.valorRestante = valorRestante;
-    }
-
-    public List<Investimento> getInvestimentos() {
-        return investimentos;
-    }
-
-    public void setInvestimentos(List<Investimento> investimentos) {
-        this.investimentos = investimentos;
-        atualizarValorRestante();
     }
 
     public String getRamoNegocio() {
@@ -215,5 +110,53 @@ public class Proposta {
 
     public void setMotivoEmprestimo(String motivoEmprestimo) {
         this.motivoEmprestimo = motivoEmprestimo;
+    }
+
+    public LocalDateTime getDataCriacao() {
+        return dataCriacao;
+    }
+
+    public void setDataCriacao(LocalDateTime dataCriacao) {
+        this.dataCriacao = dataCriacao;
+    }
+
+    public StatusProposta getStatus() {
+        return status;
+    }
+
+    public void setStatus(StatusProposta status) {
+        this.status = status;
+    }
+
+    public Usuario getSolicitante() {
+        return solicitante;
+    }
+
+    public void setSolicitante(Usuario solicitante) {
+        this.solicitante = solicitante;
+    }
+
+    public FormularioRisco getFormularioRisco() {
+        return formularioRisco;
+    }
+
+    public void setFormularioRisco(FormularioRisco formularioRisco) {
+        this.formularioRisco = formularioRisco;
+    }
+
+    public Double getTaxaJuros() {
+        return taxaJuros;
+    }
+
+    public void setTaxaJuros(Double taxaJuros) {
+        this.taxaJuros = taxaJuros;
+    }
+
+    public Double getValorTotalPagar() {
+        return valorTotalPagar;
+    }
+
+    public void setValorTotalPagar(Double valorTotalPagar) {
+        this.valorTotalPagar = valorTotalPagar;
     }
 }
