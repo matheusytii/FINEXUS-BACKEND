@@ -17,12 +17,12 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank // indica que esse campo não pode ser nullo
+    @NotBlank 
     private String nome;
 
     @NotBlank
     @Email
-    @Column(nullable = false, unique = true) // indica que email tem que ser unico
+    @Column(nullable = false, unique = true) 
     private String email;
 
     @NotBlank

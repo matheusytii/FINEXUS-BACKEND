@@ -15,7 +15,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/formularios")
-@CrossOrigin(origins = "*", allowedHeaders = "*") // 🔓 libera requisições externas (Postman, front etc)
+@CrossOrigin(origins = "*", allowedHeaders = "*") 
 public class FormularioRiscoController {
 
     @Autowired
@@ -24,7 +24,7 @@ public class FormularioRiscoController {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    // ---------- Criar novo formulário ----------
+    // Criar novo formulário 
     @PostMapping
     public ResponseEntity<?> criarFormulario(@RequestBody FormularioRisco formulario) {
         if (formulario.getUsuario() == null || formulario.getUsuario().getId() == null) {
@@ -38,7 +38,7 @@ public class FormularioRiscoController {
 
         Usuario usuario = usuarioOpt.get();
 
-        // 🔒 Verifica se o usuário já possui formulário
+        // Verifica se o usuário já possui formulário
         Optional<FormularioRisco> formularioExistente = formularioRiscoRepository.findByUsuarioId(usuario.getId());
         if (formularioExistente.isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -52,7 +52,7 @@ public class FormularioRiscoController {
         return ResponseEntity.status(HttpStatus.CREATED).body(formulario);
     }
 
-    // ---------- Atualizar formulário existente ----------
+    // Atualizar formulário existente 
     @PutMapping("/{id}")
     public ResponseEntity<?> atualizarFormulario(@PathVariable Long id, @RequestBody FormularioRisco formularioAtualizado) {
         Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findById(id);
@@ -72,7 +72,7 @@ public class FormularioRiscoController {
         return ResponseEntity.ok(formulario);
     }
 
-    // ---------- Buscar formulário por usuário ----------
+    // Buscar formulário por usuário 
     @GetMapping("/usuario/{idUsuario}")
     public ResponseEntity<?> buscarPorUsuario(@PathVariable Long idUsuario) {
         Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findByUsuarioId(idUsuario);
@@ -84,8 +84,7 @@ public class FormularioRiscoController {
         }
     }
 
-    // ---------- Listar todos os formulários ----------
-    @GetMapping
+    //  Listar todos os formulários
     public ResponseEntity<List<FormularioRisco>> listarTodos() {
         return ResponseEntity.ok(formularioRiscoRepository.findAll());
     }

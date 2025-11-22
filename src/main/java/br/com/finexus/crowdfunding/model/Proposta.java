@@ -3,7 +3,11 @@ package br.com.finexus.crowdfunding.model;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "propostas")
@@ -14,6 +18,9 @@ public class Proposta {
     private Long id;
 
     private Double valorSolicitado;
+
+    private Double saldoInvestido = 0.0;
+
     private Integer prazoMeses;
 
     private String ramoNegocio;
@@ -28,22 +35,30 @@ public class Proposta {
     @Enumerated(EnumType.STRING)
     private StatusProposta status = StatusProposta.ABERTA;
 
-    // 💰 Campos novos
-    private Double taxaJuros;       // Percentual anual baseado no perfil de risco
-    private Double valorTotalPagar; // Valor final com juros aplicados
+    private Double taxaJuros;
+    private Double valorTotalPagar;
 
-    // 📎 Relacionamento com Usuário (somente TOMADOR pode criar)
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     @JsonBackReference("usuario-proposta")
     private Usuario solicitante;
 
-    // 📎 Relacionamento com Formulário de Risco
     @ManyToOne
     @JoinColumn(name = "formulario_id")
     private FormularioRisco formularioRisco;
 
-    // ================== GETTERS E SETTERS ==================
+    @OneToMany(mappedBy = "proposta")
+    @JsonIgnore
+    private List<Investimento> investimentos = new ArrayList<>();
+
+    public List<Investimento> getInvestimentos() {
+        return investimentos;
+    }
+
+    public void setInvestimentos(List<Investimento> investimentos) {
+        this.investimentos = investimentos;
+    }
+
     public Long getId() {
         return id;
     }
@@ -54,6 +69,14 @@ public class Proposta {
 
     public void setValorSolicitado(Double valorSolicitado) {
         this.valorSolicitado = valorSolicitado;
+    }
+
+    public Double getSaldoInvestido() {
+        return saldoInvestido;
+    }
+
+    public void setSaldoInvestido(Double saldoInvestido) {
+        this.saldoInvestido = saldoInvestido;
     }
 
     public Integer getPrazoMeses() {
@@ -158,5 +181,13 @@ public class Proposta {
 
     public void setValorTotalPagar(Double valorTotalPagar) {
         this.valorTotalPagar = valorTotalPagar;
+    }
+
+    public void adicionarInvestimento(Double valor) {
+        this.saldoInvestido += valor;
+
+        if (this.saldoInvestido >= this.valorSolicitado) {
+            this.status = StatusProposta.FINANCIADA;
+        }
     }
 }

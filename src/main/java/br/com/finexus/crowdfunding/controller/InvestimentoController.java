@@ -12,6 +12,8 @@ import com.itextpdf.text.pdf.draw.LineSeparator;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,7 +32,16 @@ public class InvestimentoController {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    // 🔹 Criar investimento
+    @Autowired
+    private SaldoRepository saldoRepository;
+
+    @Autowired
+    private DividaRepository dividaRepository;
+
+    @Autowired
+    private ParcelaDividaRepository parcelaDividaRepository;
+
+    // Criar investimento
     @PostMapping
     public ResponseEntity<?> investir(@RequestBody InvestimentoRequest request) {
         Optional<Proposta> propostaOpt = propostaRepository.findById(request.getIdProposta());
@@ -44,14 +55,21 @@ public class InvestimentoController {
         Proposta proposta = propostaOpt.get();
         Usuario investidor = investidorOpt.get();
 
+        // Não deixa investir se a proposta não estiver aberta
         if (proposta.getStatus() != StatusProposta.ABERTA)
             return ResponseEntity.badRequest().body("A proposta não está aberta para investimento.");
 
         Double valor = request.getValor();
-        if (valor == null || valor.isNaN() || valor <= 0)
-            return ResponseEntity.badRequest().body("O valor do investimento deve ser positivo e maior que zero.");
 
-        // 🔸 Calcular total já investido
+        // Valor inválido
+        if (valor == null || valor.isNaN() || valor <= 0)
+            return ResponseEntity.badRequest().body("O valor do investimento deve ser positivo.");
+
+        // Valor mínimo de R$ 1.000
+        if (valor < 1000)
+            return ResponseEntity.badRequest().body("O valor mínimo por investimento é de R$ 1.000.");
+
+        // Soma dos investimentos já confirmados
         List<Investimento> investimentosDaProposta = investimentoRepository.findByProposta(proposta);
         double totalInvestido = investimentosDaProposta.stream()
                 .filter(inv -> inv.getStatus() == StatusInvestimento.CONFIRMADO)
@@ -59,13 +77,17 @@ public class InvestimentoController {
                 .sum();
 
         double restante = proposta.getValorSolicitado() - totalInvestido;
+
+        // Se não resta nada para investir
         if (restante <= 0)
-            return ResponseEntity.badRequest().body("A proposta já atingiu o valor total solicitado.");
+            return ResponseEntity.badRequest().body("A proposta já foi totalmente financiada.");
 
+        // Impede investir mais do que falta
         if (valor > restante)
-            return ResponseEntity.badRequest().body(String.format("O valor máximo disponível é R$ %.2f", restante));
+            return ResponseEntity.badRequest().body(
+                    String.format("O valor máximo disponível para investimento é R$ %.2f", restante));
 
-        // 🔸 Criar investimento
+        // Criar investimento
         Investimento investimento = new Investimento();
         investimento.setInvestidor(investidor);
         investimento.setProposta(proposta);
@@ -75,7 +97,7 @@ public class InvestimentoController {
         // QR Code fictício
         investimento.setQrCodeUrl("https://api.qrserver.com/v1/create-qr-code/?data=BOLETO-" + UUID.randomUUID());
 
-        // Cálculo de rendimento esperado com base na taxa da proposta
+        // Calcular rendimento esperado
         double taxaJuros = proposta.getTaxaJuros() != null ? proposta.getTaxaJuros() : 0.0;
         double rendimento = valor * (1 + (taxaJuros / 100));
         investimento.setRendimentoEsperado(rendimento);
@@ -85,39 +107,112 @@ public class InvestimentoController {
         return ResponseEntity.ok(investimento);
     }
 
-    // 🔹 Confirmar pagamento
+    // Confirmar pagamento
     @PutMapping("/{id}/confirmar")
-    public ResponseEntity<?> confirmarPagamento(@PathVariable Long id) {
-        Optional<Investimento> investimentoOpt = investimentoRepository.findById(id);
-        if (investimentoOpt.isEmpty())
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> confirmarInvestimento(@PathVariable Long id) {
 
-        Investimento investimento = investimentoOpt.get();
+        Optional<Investimento> opt = investimentoRepository.findById(id);
+        if (opt.isEmpty())
+            return ResponseEntity.badRequest().body("Investimento não encontrado.");
 
-        if (investimento.getStatus() != StatusInvestimento.PENDENTE)
-            return ResponseEntity.badRequest().body("Esse investimento já foi confirmado ou cancelado.");
+        Investimento investimento = opt.get();
 
-        investimento.setStatus(StatusInvestimento.CONFIRMADO);
-        investimentoRepository.save(investimento);
+        if (investimento.getStatus() == StatusInvestimento.CONFIRMADO)
+            return ResponseEntity.badRequest().body("O investimento já foi confirmado.");
 
         Proposta proposta = investimento.getProposta();
 
-        // Recalcular o total investido
-        double totalInvestido = investimentoRepository.findByProposta(proposta).stream()
+        // Total investido antes da confirmação
+        double totalConfirmadoAntes = investimentoRepository.findByProposta(proposta).stream()
                 .filter(inv -> inv.getStatus() == StatusInvestimento.CONFIRMADO)
                 .mapToDouble(Investimento::getValorInvestido)
                 .sum();
 
-        // Atualizar status da proposta se totalmente financiada
-        if (totalInvestido >= proposta.getValorSolicitado()) {
-            proposta.setStatus(StatusProposta.FINANCIADA);
-            propostaRepository.save(proposta);
+        double restante = proposta.getValorSolicitado() - totalConfirmadoAntes;
+
+        // Impede confirmar se o pagamento fizer ultrapassar o valor solicitado
+        if (investimento.getValorInvestido() > restante) {
+            return ResponseEntity.badRequest().body(
+                    String.format(
+                            "Não é possível confirmar. O valor restante para financiamento é R$ %.2f",
+                            restante));
         }
 
-        return ResponseEntity.ok("Pagamento confirmado e investimento liberado.");
+        // Agora pode confirmar de verdade
+        investimento.setStatus(StatusInvestimento.CONFIRMADO);
+        investimentoRepository.save(investimento);
+
+        // Recalcula total investido após a confirmação
+        double totalConfirmado = investimentoRepository.findByProposta(proposta).stream()
+                .filter(inv -> inv.getStatus() == StatusInvestimento.CONFIRMADO)
+                .mapToDouble(Investimento::getValorInvestido)
+                .sum();
+
+        // ✔ Atualiza saldoInvestido do registro
+        proposta.setSaldoInvestido(totalConfirmado);
+
+        // Verifica se financiou completamente
+        if (totalConfirmado >= proposta.getValorSolicitado()) {
+            proposta.setStatus(StatusProposta.FINANCIADA);
+        }
+
+        // Atualizar saldo do tomador
+        Saldo saldoTomador = saldoRepository.findByUsuarioId(proposta.getSolicitante().getId());
+        if (saldoTomador == null) {
+            saldoTomador = new Saldo();
+            saldoTomador.setUsuario(proposta.getSolicitante());
+            saldoTomador.setValor(0.0);
+        }
+
+        saldoTomador.setValor(saldoTomador.getValor() + investimento.getValorInvestido());
+        saldoRepository.save(saldoTomador);
+
+        // Criar dívida e parcelas (se ainda não existir)
+        Divida divida = dividaRepository.findByPropostaId(proposta.getId());
+        boolean novaDivida = false;
+
+        if (divida == null) {
+            novaDivida = true;
+            divida = new Divida();
+            divida.setProposta(proposta);
+            divida.setTomador(proposta.getSolicitante());
+            divida.setValorTotal(proposta.getValorTotalPagar());
+            divida.setParcelas(proposta.getPrazoMeses());
+            divida.setValorParcela(proposta.getValorTotalPagar() / proposta.getPrazoMeses());
+        }
+
+        // Atualiza lista de investidores
+        List<Long> idsInvestidores = investimentoRepository.findByProposta(proposta).stream()
+                .filter(inv -> inv.getStatus() == StatusInvestimento.CONFIRMADO)
+                .map(inv -> inv.getInvestidor().getId())
+                .distinct()
+                .toList();
+
+        divida.setInvestidoresIds(new ArrayList<>(idsInvestidores));
+
+        // SALVAR
+        divida = dividaRepository.save(divida);
+
+        // Criar parcelas SOMENTE se a dívida foi criada agora
+        if (novaDivida) {
+            for (int i = 1; i <= proposta.getPrazoMeses(); i++) {
+                ParcelaDivida parcela = new ParcelaDivida();
+                parcela.setDivida(divida);
+                parcela.setNumeroParcela(i);
+                parcela.setValor(divida.getValorParcela());
+                parcela.setVencimento(LocalDate.now().plusMonths(i));
+                parcela.setStatus(StatusParcela.PENDENTE);
+
+                parcelaDividaRepository.save(parcela);
+            }
+        }
+
+        propostaRepository.save(proposta);
+
+        return ResponseEntity.ok("Investimento confirmado com sucesso.");
     }
 
-    // 🔹 Gerar boleto (PDF)
+    // Gerar boleto (PDF)
     @GetMapping("/{id}/boleto")
     public ResponseEntity<byte[]> gerarBoleto(@PathVariable Long id) throws Exception {
         Optional<Investimento> invOpt = investimentoRepository.findById(id);
@@ -137,7 +232,7 @@ public class InvestimentoController {
 
         PdfContentByte canvas = writer.getDirectContentUnder();
 
-        // 🔸 Fundo
+        // Fundo
         try {
             Image background = Image.getInstance(bgPath);
             background.scaleToFit(PageSize.A4.getWidth() * 0.6f, PageSize.A4.getHeight() * 0.6f);
@@ -165,7 +260,7 @@ public class InvestimentoController {
 
             PdfPTable headerTable = new PdfPTable(3);
             headerTable.setWidthPercentage(100);
-            headerTable.setWidths(new float[]{1f, 2f, 1f});
+            headerTable.setWidths(new float[] { 1f, 2f, 1f });
             headerTable.getDefaultCell().setBorder(Rectangle.NO_BORDER);
 
             PdfPCell logoCell = new PdfPCell(logo);
@@ -248,7 +343,7 @@ public class InvestimentoController {
                 .body(outputStream.toByteArray());
     }
 
-    // 🔹 Listar por proposta
+    // Listar por proposta
     @GetMapping("/proposta/{idProposta}")
     public ResponseEntity<?> listarPorProposta(@PathVariable Long idProposta) {
         Optional<Proposta> proposta = propostaRepository.findById(idProposta);
@@ -257,7 +352,7 @@ public class InvestimentoController {
         return ResponseEntity.ok(investimentoRepository.findByProposta(proposta.get()));
     }
 
-    // 🔹 Listar por investidor
+    // Listar por investidor
     @GetMapping("/investidor/{idInvestidor}")
     public ResponseEntity<?> listarPorInvestidor(@PathVariable Long idInvestidor) {
         Optional<Usuario> investidor = usuarioRepository.findById(idInvestidor);
