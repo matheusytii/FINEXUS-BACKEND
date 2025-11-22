@@ -104,31 +104,57 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // ATUALIZAR DADOS DO USUÁRIO
     @PutMapping("/{id}")
-    public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Usuario dadosAtualizados) {
-        return usuarioRepository.findById(id)
-                .map(usuarioExistente -> {
-                    if (dadosAtualizados.getNome() != null)
-                        usuarioExistente.setNome(dadosAtualizados.getNome());
-                    if (dadosAtualizados.getEmail() != null)
-                        usuarioExistente.setEmail(dadosAtualizados.getEmail());
-                    if (dadosAtualizados.getCpf() != null)
-                        usuarioExistente.setCpf(dadosAtualizados.getCpf());
-                    if (dadosAtualizados.getTipo() != null)
-                        usuarioExistente.setTipo(dadosAtualizados.getTipo());
+public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+    return usuarioRepository.findById(id)
+            .map(usuarioExistente -> {
+                // Atualizar nome
+                if (body.containsKey("nome")) {
+                    usuarioExistente.setNome((String) body.get("nome"));
+                }
+                // Atualizar email
+                if (body.containsKey("email")) {
+                    usuarioExistente.setEmail((String) body.get("email"));
+                }
+                // Atualizar CPF
+                if (body.containsKey("cpf")) {
+                    usuarioExistente.setCpf((String) body.get("cpf"));
+                }
+                // Atualizar telefone (NOVO)
+                if (body.containsKey("telefone")) {
+                    usuarioExistente.setTelefone((String) body.get("telefone"));
+                }
+                // Atualizar senha com confirmação (NOVO)
+                if (body.containsKey("senha")) {
+                    String novaSenha = (String) body.get("senha");
+                    String confirmarSenha = (String) body.get("confirmarSenha");
+                    if (novaSenha != null && !novaSenha.isBlank()) {
+                        // Se o front não mandar confirmarSenha → erro
+                        if (confirmarSenha == null) {
+                            return ResponseEntity.badRequest().body(
+                                Map.of("erro", "É necessário confirmar a senha.")
+                            );
+                        }
+                        // Se as senhas não baterem → erro
+                        if (!novaSenha.equals(confirmarSenha)) {
+                            return ResponseEntity.badRequest().body(
+                                Map.of("erro", "As senhas não coincidem.")
+                            );
+                        }
 
-                    if (dadosAtualizados.getSenha() != null && !dadosAtualizados.getSenha().isBlank()) {
-                        usuarioExistente.setSenha(passwordEncoder.encode(dadosAtualizados.getSenha()));
+                        usuarioExistente.setSenha(passwordEncoder.encode(novaSenha));
                     }
+                }
 
-                    usuarioRepository.save(usuarioExistente);
-                    return ResponseEntity.ok(Map.of(
-                            "mensagem", "Usuário atualizado com sucesso!",
-                            "usuario", usuarioExistente));
-                })
-                .orElse(ResponseEntity.status(404).body(Map.of("erro", "Usuário não encontrado")));
-    }
+                usuarioRepository.save(usuarioExistente);
+
+                return ResponseEntity.ok(Map.of(
+                        "mensagem", "Usuário atualizado com sucesso!",
+                        "usuario", usuarioExistente
+                ));
+            })
+            .orElse(ResponseEntity.status(404).body(Map.of("erro", "Usuário não encontrado")));
+}
 
     // DELETAR CONTA DO USUÁRIO
     @DeleteMapping("/{id}")
