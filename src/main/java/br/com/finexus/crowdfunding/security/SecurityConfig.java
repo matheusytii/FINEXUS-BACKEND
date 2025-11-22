@@ -30,6 +30,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/propostas/**").permitAll()
                         .requestMatchers("/investimentos/**").permitAll()
                         .requestMatchers("/formularios/**").permitAll()
+                        .requestMatchers("/saldos/**").permitAll()                        
+                        .requestMatchers("/parcelas/**").permitAll()                        
+                        .requestMatchers("/dividas/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/formularios/usuario/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

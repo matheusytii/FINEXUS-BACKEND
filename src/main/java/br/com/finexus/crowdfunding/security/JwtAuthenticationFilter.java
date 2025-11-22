@@ -58,11 +58,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
             System.out.println("⚠️ Token inválido: " + e.getMessage());
-            // Continua o fluxo mesmo com token inválido, sem quebrar a requisição
+           
             SecurityContextHolder.clearContext();
         }
 
-        // 🔹 Sempre continua o filtro
+    
         filterChain.doFilter(request, response);
     }
 }

@@ -25,12 +25,12 @@ public class Investimento {
 
     @ManyToOne
     @JoinColumn(name = "investidor_id", nullable = false)
-    @JsonBackReference // evita loop serializando Investidor -> Investimentos -> Investidor...
+    @JsonBackReference 
     private Usuario investidor;
 
     @ManyToOne
     @JoinColumn(name = "proposta_id", nullable = false)
-    @JsonBackReference // evita loop serializando Proposta -> Investimentos -> Proposta...
+    @JsonBackReference 
     private Proposta proposta;
 
     public Investimento() {

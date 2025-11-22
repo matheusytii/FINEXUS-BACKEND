@@ -23,7 +23,7 @@ public class UsuarioController {
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    // 🧩 CADASTRO DE USUÁRIO (público)
+    // CADASTRO DE USUÁRIO (público)
     @PostMapping("/cadastro")
     public ResponseEntity<?> cadastrar(@RequestBody Usuario novoUsuario) {
         if (usuarioRepository.findByEmail(novoUsuario.getEmail()) != null) {
@@ -73,7 +73,7 @@ public class UsuarioController {
     }
 
 
-    // 👥 LISTAR TODOS OS USUÁRIOS (rota protegida)
+    // LISTAR TODOS OS USUÁRIOS (rota protegida)
     @GetMapping
     public ResponseEntity<List<Usuario>> listar() {
         return ResponseEntity.ok(usuarioRepository.findAll());
@@ -87,7 +87,7 @@ public class UsuarioController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // ✏️ ATUALIZAR DADOS DO USUÁRIO
+    // ATUALIZAR DADOS DO USUÁRIO
     @PutMapping("/{id}")
     public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Usuario dadosAtualizados) {
         return usuarioRepository.findById(id)
