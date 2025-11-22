@@ -17,13 +17,16 @@ public class Usuario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank 
+    @NotBlank
     private String nome;
 
     @NotBlank
     @Email
-    @Column(nullable = false, unique = true) 
+    @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(length = 15)
+    private String telefone;
 
     @NotBlank
     private String senha;
@@ -49,6 +52,14 @@ public class Usuario {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getTelefone() {
+        return telefone;
+    }
+
+    public void setTelefone(String telefone) {
+        this.telefone = telefone;
     }
 
     public String getNome() {

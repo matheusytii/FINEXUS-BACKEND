@@ -1,6 +1,7 @@
 package br.com.finexus.crowdfunding.controller;
 
 import br.com.finexus.crowdfunding.dto.LoginRequest;
+import br.com.finexus.crowdfunding.model.TipoUsuario;
 import br.com.finexus.crowdfunding.model.Usuario;
 import br.com.finexus.crowdfunding.repository.UsuarioRepository;
 import br.com.finexus.crowdfunding.security.JwtUtil;
@@ -25,7 +26,24 @@ public class UsuarioController {
 
     // CADASTRO DE USUÁRIO (público)
     @PostMapping("/cadastro")
-    public ResponseEntity<?> cadastrar(@RequestBody Usuario novoUsuario) {
+    public ResponseEntity<?> cadastrar(@RequestBody Map<String, Object> body) {
+
+        // Validar confirmação de senha
+        String senha = (String) body.get("senha");
+        String confirmarSenha = (String) body.get("confirmarSenha");
+
+        if (!senha.equals(confirmarSenha)) {
+            return ResponseEntity.badRequest().body(Map.of("erro", "As senhas não coincidem"));
+        }
+
+        // Agora criar o Usuario normalmente
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setNome((String) body.get("nome"));
+        novoUsuario.setEmail((String) body.get("email"));
+        novoUsuario.setCpf((String) body.get("cpf"));
+        novoUsuario.setTelefone((String) body.get("telefone"));
+        novoUsuario.setTipo(TipoUsuario.valueOf((String) body.get("tipo")));
+
         if (usuarioRepository.findByEmail(novoUsuario.getEmail()) != null) {
             return ResponseEntity.badRequest().body(Map.of("erro", "Email já cadastrado"));
         }
@@ -35,7 +53,7 @@ public class UsuarioController {
         }
 
         // Criptografa a senha antes de salvar
-        novoUsuario.setSenha(passwordEncoder.encode(novoUsuario.getSenha()));
+        novoUsuario.setSenha(passwordEncoder.encode(senha));
 
         Usuario salvo = usuarioRepository.save(novoUsuario);
 
@@ -51,27 +69,26 @@ public class UsuarioController {
         return ResponseEntity.ok(resposta);
     }
 
-    //  LOGIN DO USUÁRIO (por CPF)
+    // LOGIN DO USUÁRIO (por CPF)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest dadosLogin) {
 
-    Usuario usuario = usuarioRepository.findByCpf(dadosLogin.getCpf());
-    Map<String, Object> resposta = new HashMap<>();
+        Usuario usuario = usuarioRepository.findByCpf(dadosLogin.getCpf());
+        Map<String, Object> resposta = new HashMap<>();
 
-    if (usuario == null || !passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
-        resposta.put("erro", "CPF ou senha inválidos");
-        return ResponseEntity.status(401).body(resposta);
+        if (usuario == null || !passwordEncoder.matches(dadosLogin.getSenha(), usuario.getSenha())) {
+            resposta.put("erro", "CPF ou senha inválidos");
+            return ResponseEntity.status(401).body(resposta);
+        }
+
+        String token = jwtUtil.gerarToken(usuario.getCpf(), usuario.getTipo().name());
+
+        resposta.put("token", token);
+        resposta.put("tipo", usuario.getTipo());
+        resposta.put("id", usuario.getId());
+
+        return ResponseEntity.ok(resposta);
     }
-
-    String token = jwtUtil.gerarToken(usuario.getCpf(), usuario.getTipo().name());
-
-    resposta.put("token", token);
-    resposta.put("tipo", usuario.getTipo());
-    resposta.put("id", usuario.getId());
-
-    return ResponseEntity.ok(resposta);
-    }
-
 
     // LISTAR TODOS OS USUÁRIOS (rota protegida)
     @GetMapping
@@ -92,10 +109,14 @@ public class UsuarioController {
     public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Usuario dadosAtualizados) {
         return usuarioRepository.findById(id)
                 .map(usuarioExistente -> {
-                    if (dadosAtualizados.getNome() != null) usuarioExistente.setNome(dadosAtualizados.getNome());
-                    if (dadosAtualizados.getEmail() != null) usuarioExistente.setEmail(dadosAtualizados.getEmail());
-                    if (dadosAtualizados.getCpf() != null) usuarioExistente.setCpf(dadosAtualizados.getCpf());
-                    if (dadosAtualizados.getTipo() != null) usuarioExistente.setTipo(dadosAtualizados.getTipo());
+                    if (dadosAtualizados.getNome() != null)
+                        usuarioExistente.setNome(dadosAtualizados.getNome());
+                    if (dadosAtualizados.getEmail() != null)
+                        usuarioExistente.setEmail(dadosAtualizados.getEmail());
+                    if (dadosAtualizados.getCpf() != null)
+                        usuarioExistente.setCpf(dadosAtualizados.getCpf());
+                    if (dadosAtualizados.getTipo() != null)
+                        usuarioExistente.setTipo(dadosAtualizados.getTipo());
 
                     if (dadosAtualizados.getSenha() != null && !dadosAtualizados.getSenha().isBlank()) {
                         usuarioExistente.setSenha(passwordEncoder.encode(dadosAtualizados.getSenha()));
@@ -104,8 +125,7 @@ public class UsuarioController {
                     usuarioRepository.save(usuarioExistente);
                     return ResponseEntity.ok(Map.of(
                             "mensagem", "Usuário atualizado com sucesso!",
-                            "usuario", usuarioExistente
-                    ));
+                            "usuario", usuarioExistente));
                 })
                 .orElse(ResponseEntity.status(404).body(Map.of("erro", "Usuário não encontrado")));
     }
