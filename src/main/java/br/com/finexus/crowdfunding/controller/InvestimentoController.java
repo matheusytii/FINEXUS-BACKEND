@@ -55,6 +55,17 @@ public class InvestimentoController {
         Proposta proposta = propostaOpt.get();
         Usuario investidor = investidorOpt.get();
 
+        // 🚨 Impede tomador de investir
+        if (investidor.getTipo() != TipoUsuario.INVESTIDOR) {
+            return ResponseEntity.badRequest().body("Apenas usuários INVESTIDOR podem realizar investimentos.");
+        }
+
+        if (propostaOpt.isEmpty())
+            return ResponseEntity.badRequest().body("Proposta não encontrada.");
+        if (investidorOpt.isEmpty())
+            return ResponseEntity.badRequest().body("Investidor não encontrado.");
+
+     
         // Não deixa investir se a proposta não estiver aberta
         if (proposta.getStatus() != StatusProposta.ABERTA)
             return ResponseEntity.badRequest().body("A proposta não está aberta para investimento.");
@@ -167,7 +178,13 @@ public class InvestimentoController {
         saldoTomador.setValor(saldoTomador.getValor() + investimento.getValorInvestido());
         saldoRepository.save(saldoTomador);
 
-        // Criar dívida e parcelas (se ainda não existir)
+        // Só cria dívida quando a proposta estiver totalmente financiada
+        if (proposta.getStatus() != StatusProposta.FINANCIADA) {
+            propostaRepository.save(proposta);
+            return ResponseEntity.ok("Investimento confirmado. Aguardando financiamento completo.");
+        }
+
+        // Criar dívida e parcelas (somente agora!)
         Divida divida = dividaRepository.findByPropostaId(proposta.getId());
         boolean novaDivida = false;
 

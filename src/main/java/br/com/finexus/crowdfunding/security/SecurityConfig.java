@@ -29,7 +29,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/propostas", "/propostas/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/propostas/**").permitAll()
                         .requestMatchers("/investimentos/**").permitAll()
-                        .requestMatchers("/formularios/**").permitAll()
                         .requestMatchers("/saldos/**").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/usuarios/**").permitAll()                        
                         .requestMatchers("/parcelas/**").permitAll()                        

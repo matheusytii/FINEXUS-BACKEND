@@ -41,9 +41,6 @@ public class Usuario {
     @JsonManagedReference("usuario-proposta")
     private List<Proposta> propostas = new ArrayList<>();
 
-    @OneToOne(mappedBy = "usuario", cascade = CascadeType.ALL)
-    @JsonManagedReference("usuario-formulario")
-    private FormularioRisco formularioRisco;
 
     // getters e setters
     public Long getId() {

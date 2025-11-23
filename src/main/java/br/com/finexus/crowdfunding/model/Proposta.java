@@ -1,7 +1,6 @@
 package br.com.finexus.crowdfunding.model;
 
 import jakarta.persistence.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,50 +16,96 @@ public class Proposta {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ---------- CAMPOS DO NEGÓCIO ----------
+    private String nomeNegocio;
+    private String categoria;
+    private String descricaoNegocio;
+    private String cnpj;
+    private Integer tempoAtuacaoMeses;
+    private Double faturamentoMensal;
+
+    // ---------- CAMPOS DO EMPRÉSTIMO ----------
     private Double valorSolicitado;
-
     private Double saldoInvestido = 0.0;
-
     private Integer prazoMeses;
 
-    private String ramoNegocio;
-    private String tamanhoNegocio;
-    private LocalDate dataAberturaNegocio;
-    private String cnpj;
-    private String motivacaoAbertura;
     private String motivoEmprestimo;
+    private String descricaoUsoRecurso;
 
     private LocalDateTime dataCriacao = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
     private StatusProposta status = StatusProposta.ABERTA;
 
+    // ---------- RESULTADOS DO CÁLCULO ----------
+    private Integer riscoCalculado;
     private Double taxaJuros;
     private Double valorTotalPagar;
 
+    // ---------- RELACIONAMENTOS ----------
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     @JsonBackReference("usuario-proposta")
     private Usuario solicitante;
 
-    @ManyToOne
-    @JoinColumn(name = "formulario_id")
-    private FormularioRisco formularioRisco;
-
     @OneToMany(mappedBy = "proposta")
     @JsonIgnore
     private List<Investimento> investimentos = new ArrayList<>();
 
-    public List<Investimento> getInvestimentos() {
-        return investimentos;
-    }
-
-    public void setInvestimentos(List<Investimento> investimentos) {
-        this.investimentos = investimentos;
-    }
+    // =============================================================
+    // GETTERS E SETTERS
+    // =============================================================
 
     public Long getId() {
         return id;
+    }
+
+    public String getNomeNegocio() {
+        return nomeNegocio;
+    }
+
+    public void setNomeNegocio(String nomeNegocio) {
+        this.nomeNegocio = nomeNegocio;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public String getDescricaoNegocio() {
+        return descricaoNegocio;
+    }
+
+    public void setDescricaoNegocio(String descricaoNegocio) {
+        this.descricaoNegocio = descricaoNegocio;
+    }
+
+    public String getCnpj() {
+        return cnpj;
+    }
+
+    public void setCnpj(String cnpj) {
+        this.cnpj = cnpj;
+    }
+
+    public Integer getTempoAtuacaoMeses() {
+        return tempoAtuacaoMeses;
+    }
+
+    public void setTempoAtuacaoMeses(Integer tempoAtuacaoMeses) {
+        this.tempoAtuacaoMeses = tempoAtuacaoMeses;
+    }
+
+    public Double getFaturamentoMensal() {
+        return faturamentoMensal;
+    }
+
+    public void setFaturamentoMensal(Double faturamentoMensal) {
+        this.faturamentoMensal = faturamentoMensal;
     }
 
     public Double getValorSolicitado() {
@@ -87,52 +132,20 @@ public class Proposta {
         this.prazoMeses = prazoMeses;
     }
 
-    public String getRamoNegocio() {
-        return ramoNegocio;
-    }
-
-    public void setRamoNegocio(String ramoNegocio) {
-        this.ramoNegocio = ramoNegocio;
-    }
-
-    public String getTamanhoNegocio() {
-        return tamanhoNegocio;
-    }
-
-    public void setTamanhoNegocio(String tamanhoNegocio) {
-        this.tamanhoNegocio = tamanhoNegocio;
-    }
-
-    public LocalDate getDataAberturaNegocio() {
-        return dataAberturaNegocio;
-    }
-
-    public void setDataAberturaNegocio(LocalDate dataAberturaNegocio) {
-        this.dataAberturaNegocio = dataAberturaNegocio;
-    }
-
-    public String getCnpj() {
-        return cnpj;
-    }
-
-    public void setCnpj(String cnpj) {
-        this.cnpj = cnpj;
-    }
-
-    public String getMotivacaoAbertura() {
-        return motivacaoAbertura;
-    }
-
-    public void setMotivacaoAbertura(String motivacaoAbertura) {
-        this.motivacaoAbertura = motivacaoAbertura;
-    }
-
     public String getMotivoEmprestimo() {
         return motivoEmprestimo;
     }
 
     public void setMotivoEmprestimo(String motivoEmprestimo) {
         this.motivoEmprestimo = motivoEmprestimo;
+    }
+
+    public String getDescricaoUsoRecurso() {
+        return descricaoUsoRecurso;
+    }
+
+    public void setDescricaoUsoRecurso(String descricaoUsoRecurso) {
+        this.descricaoUsoRecurso = descricaoUsoRecurso;
     }
 
     public LocalDateTime getDataCriacao() {
@@ -151,20 +164,12 @@ public class Proposta {
         this.status = status;
     }
 
-    public Usuario getSolicitante() {
-        return solicitante;
+    public Integer getRiscoCalculado() {
+        return riscoCalculado;
     }
 
-    public void setSolicitante(Usuario solicitante) {
-        this.solicitante = solicitante;
-    }
-
-    public FormularioRisco getFormularioRisco() {
-        return formularioRisco;
-    }
-
-    public void setFormularioRisco(FormularioRisco formularioRisco) {
-        this.formularioRisco = formularioRisco;
+    public void setRiscoCalculado(Integer riscoCalculado) {
+        this.riscoCalculado = riscoCalculado;
     }
 
     public Double getTaxaJuros() {
@@ -183,6 +188,73 @@ public class Proposta {
         this.valorTotalPagar = valorTotalPagar;
     }
 
+    public Usuario getSolicitante() {
+        return solicitante;
+    }
+
+    public void setSolicitante(Usuario solicitante) {
+        this.solicitante = solicitante;
+    }
+
+    public List<Investimento> getInvestimentos() {
+        return investimentos;
+    }
+
+    public void setInvestimentos(List<Investimento> investimentos) {
+        this.investimentos = investimentos;
+    }
+
+    // =============================================================
+    // LÓGICAS DO SISTEMA
+    // =============================================================
+
+    /** Calcula risco, juros e total baseado nas novas regras */
+    public void calcularRiscoEJuros() {
+
+        double risco = 0;
+
+        // Relação valor solicitado / faturamento
+        double relacao = valorSolicitado / faturamentoMensal;
+
+        if (relacao < 0.5)
+            risco += 10;
+        else if (relacao < 1.0)
+            risco += 25;
+        else if (relacao < 2.0)
+            risco += 45;
+        else
+            risco += 70;
+
+        // Tempo de atuação
+        if (tempoAtuacaoMeses >= 36)
+            risco -= 15;
+        else if (tempoAtuacaoMeses >= 12)
+            risco -= 5;
+        else
+            risco += 10;
+
+        risco = Math.min(100, Math.max(0, risco));
+        this.riscoCalculado = (int) risco;
+
+        // Taxa de juros baseada no risco
+        double jurosBase;
+        if (risco <= 25)
+            jurosBase = 2.5; // Baixo risco
+        else if (risco <= 50)
+            jurosBase = 3.8; // Risco moderado
+        else if (risco <= 75)
+            jurosBase = 5.2; // Risco alto
+        else
+            jurosBase = 7.5;
+        double jurosFinal = jurosBase + (prazoMeses * 0.02);
+
+        this.taxaJuros = jurosFinal;
+
+        // Valor total a pagar (juros compostos)
+        this.valorTotalPagar = valorSolicitado * Math.pow(1 + (jurosFinal / 100), prazoMeses);
+    }
+
+    /** Registra investimento e atualiza status */
     public void adicionarInvestimento(Double valor) {
         this.saldoInvestido += valor;
 

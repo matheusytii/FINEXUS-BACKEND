@@ -2,13 +2,12 @@ package br.com.finexus.crowdfunding.controller;
 
 import br.com.finexus.crowdfunding.model.*;
 import br.com.finexus.crowdfunding.repository.*;
-import br.com.finexus.crowdfunding.service.AvaliacaoRiscoService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
@@ -22,15 +21,10 @@ public class PropostaController {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    @Autowired
-    private FormularioRiscoRepository formularioRiscoRepository;
-
-    @Autowired
-    private AvaliacaoRiscoService avaliacaoRiscoService;
-
     // Criar nova proposta
     @PostMapping
     public ResponseEntity<?> criarProposta(@RequestBody Proposta proposta) {
+
         if (proposta.getSolicitante() == null || proposta.getSolicitante().getId() == null) {
             return ResponseEntity.badRequest().body("Usuário inválido.");
         }
@@ -38,42 +32,74 @@ public class PropostaController {
         Usuario usuario = usuarioRepository.findById(proposta.getSolicitante().getId())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
+        if (!"TOMADOR".equalsIgnoreCase(usuario.getTipo().name())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Somente usuários TOMADOR podem criar propostas.");
+        }
+
+        // validações básicas de entrada para evitar NPE / divisão por zero
+        if (proposta.getValorSolicitado() == null || proposta.getValorSolicitado() <= 0) {
+            return ResponseEntity.badRequest().body("valorSolicitado inválido.");
+        }
+        if (proposta.getFaturamentoMensal() == null || proposta.getFaturamentoMensal() <= 0) {
+            return ResponseEntity.badRequest().body("faturamentoMensal inválido.");
+        }
+        if (proposta.getPrazoMeses() == null || proposta.getPrazoMeses() <= 0) {
+            return ResponseEntity.badRequest().body("prazoMeses inválido.");
+        }
+
         proposta.setSolicitante(usuario);
-
-        if (usuario.getTipo() == null || !usuario.getTipo().name().equalsIgnoreCase("TOMADOR")) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Somente usuários do tipo TOMADOR podem criar propostas.");
-        }
-
-        Optional<FormularioRisco> formularioOpt = formularioRiscoRepository.findByUsuarioId(usuario.getId());
-        if (formularioOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Usuário precisa preencher o Formulário de Risco antes de criar uma proposta.");
-        }
-
-        List<Proposta> propostasAbertas = propostaRepository.findBySolicitanteId(usuario.getId())
-                .stream()
-                .filter(p -> p.getStatus() != null && p.getStatus().equals(StatusProposta.ABERTA))
-                .toList();
-
-        if (propostasAbertas.size() >= 3) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Você já possui 3 propostas ativas. Feche uma proposta antes de criar uma nova.");
-        }
-
-        FormularioRisco form = formularioOpt.get();
-        proposta.setFormularioRisco(form);
+        proposta.setDataCriacao(LocalDateTime.now());
         proposta.setStatus(StatusProposta.ABERTA);
-        proposta.setDataCriacao(java.time.LocalDateTime.now());
 
-        // Cálculo da taxa e valor total
-        double taxaJuros = avaliacaoRiscoService.calcularTaxaJuros(form.getPerfilRisco(), proposta.getPrazoMeses());
-        proposta.setTaxaJuros(taxaJuros);
+        // --- CÁLCULO DO RISCO ---
+        double risco = 0;
 
-        double valorTotal = proposta.getValorSolicitado() * (1 + (taxaJuros / 100.0));
-        proposta.setValorTotalPagar(valorTotal);
+        double relacao = proposta.getValorSolicitado() / proposta.getFaturamentoMensal();
+        if (relacao < 0.5)
+            risco += 10;
+        else if (relacao < 1.0)
+            risco += 25;
+        else if (relacao < 2.0)
+            risco += 45;
+        else
+            risco += 70;
+
+        if (proposta.getTempoAtuacaoMeses() != null) {
+            if (proposta.getTempoAtuacaoMeses() >= 36)
+                risco -= 15;
+            else if (proposta.getTempoAtuacaoMeses() >= 12)
+                risco -= 5;
+            else
+                risco += 10;
+        } else {
+            // se tempoAtuacaoMeses for nulo, trate como recente (maior risco)
+            risco += 10;
+        }
+
+        risco = Math.min(100, Math.max(0, risco));
+        proposta.setRiscoCalculado((int) Math.round(risco)); // usa o setter existente
+
+        double jurosBase;
+
+        if (risco <= 25)
+            jurosBase = 2.5; // Baixo risco
+        else if (risco <= 50)
+            jurosBase = 3.8; // Risco moderado
+        else if (risco <= 75)
+            jurosBase = 5.2; // Risco alto
+        else
+            jurosBase = 7.5; // Risco muito alto
+
+        double jurosFinal = jurosBase + (proposta.getPrazoMeses() * 0.02);
+        proposta.setTaxaJuros(jurosFinal); // usa o setter existente
+
+        // --- VALOR TOTAL (juros compostos) ---
+        double total = proposta.getValorSolicitado() * Math.pow(1 + (jurosFinal / 100), proposta.getPrazoMeses());
+        proposta.setValorTotalPagar(total);
 
         Proposta salva = propostaRepository.save(proposta);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(salva);
     }
 
@@ -88,11 +114,11 @@ public class PropostaController {
     }
 
     @GetMapping("/{id}")
-public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
-    return propostaRepository.findById(id)
-            .<ResponseEntity<?>>map(ResponseEntity::ok)
-            .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Proposta não encontrada."));
-}
+    public ResponseEntity<?> buscarPorId(@PathVariable Long id) {
+        return propostaRepository.findById(id)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Proposta não encontrada."));
+    }
 
     // Atualizar status da proposta
     @PutMapping("/{id}/status")
