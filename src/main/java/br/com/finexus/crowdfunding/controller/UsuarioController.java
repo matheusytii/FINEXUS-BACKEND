@@ -28,7 +28,6 @@ public class UsuarioController {
     @PostMapping("/cadastro")
     public ResponseEntity<?> cadastrar(@RequestBody Map<String, Object> body) {
 
-        // Validar confirmação de senha
         String senha = (String) body.get("senha");
         String confirmarSenha = (String) body.get("confirmarSenha");
 
@@ -36,37 +35,42 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body(Map.of("erro", "As senhas não coincidem"));
         }
 
-        // Agora criar o Usuario normalmente
-        Usuario novoUsuario = new Usuario();
-        novoUsuario.setNome((String) body.get("nome"));
-        novoUsuario.setEmail((String) body.get("email"));
-        novoUsuario.setCpf((String) body.get("cpf"));
-        novoUsuario.setTelefone((String) body.get("telefone"));
-        novoUsuario.setTipo(TipoUsuario.valueOf((String) body.get("tipo")));
+        String cpf = (String) body.get("cpf");
 
-        if (usuarioRepository.findByEmail(novoUsuario.getEmail()) != null) {
+        // Validação do formato do CPF
+        if (!cpf.matches("\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}")) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("erro", "CPF inválido. Use o formato 000.000.000-00"));
+        }
+
+        // Verificar se email já existe
+        if (usuarioRepository.findByEmail((String) body.get("email")) != null) {
             return ResponseEntity.badRequest().body(Map.of("erro", "Email já cadastrado"));
         }
 
-        if (usuarioRepository.findByCpf(novoUsuario.getCpf()) != null) {
+        // 👉 Agora funcionando corretamente com Optional
+        if (usuarioRepository.findByCpf(cpf).isPresent()) {
             return ResponseEntity.badRequest().body(Map.of("erro", "CPF já cadastrado"));
         }
 
-        // Criptografa a senha antes de salvar
+        Usuario novoUsuario = new Usuario();
+        novoUsuario.setNome((String) body.get("nome"));
+        novoUsuario.setEmail((String) body.get("email"));
+        novoUsuario.setCpf(cpf);
+        novoUsuario.setTelefone((String) body.get("telefone"));
+        novoUsuario.setTipo(TipoUsuario.valueOf((String) body.get("tipo")));
         novoUsuario.setSenha(passwordEncoder.encode(senha));
 
         Usuario salvo = usuarioRepository.save(novoUsuario);
 
-        // Gera token JWT com CPF e tipo de usuário
         String token = jwtUtil.gerarToken(salvo.getCpf(), salvo.getTipo().name());
 
-        Map<String, Object> resposta = new HashMap<>();
-        resposta.put("mensagem", "Usuário cadastrado com sucesso!");
-        resposta.put("token", token);
-        resposta.put("tipo", salvo.getTipo());
-        resposta.put("id", salvo.getId());
-
-        return ResponseEntity.ok(resposta);
+        return ResponseEntity.ok(
+                Map.of(
+                        "mensagem", "Usuário cadastrado com sucesso!",
+                        "token", token,
+                        "tipo", salvo.getTipo(),
+                        "id", salvo.getId()));
     }
 
     // LOGIN DO USUÁRIO (por CPF)
