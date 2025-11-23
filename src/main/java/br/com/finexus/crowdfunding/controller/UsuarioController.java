@@ -127,36 +127,48 @@ public class UsuarioController {
     public ResponseEntity<?> atualizar(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         return usuarioRepository.findById(id)
                 .map(usuarioExistente -> {
-                    // Atualizar email
+
                     if (body.containsKey("email")) {
                         usuarioExistente.setEmail((String) body.get("email"));
                     }
-                    // Atualizar CPF
+
                     if (body.containsKey("cpf")) {
                         usuarioExistente.setCpf((String) body.get("cpf"));
                     }
-                    // Atualizar telefone (NOVO)
+
                     if (body.containsKey("telefone")) {
                         usuarioExistente.setTelefone((String) body.get("telefone"));
                     }
-                    // Atualizar senha com confirmação (NOVO)
+
                     if (body.containsKey("senha")) {
                         String novaSenha = (String) body.get("senha");
                         String confirmarSenha = (String) body.get("confirmarSenha");
-                        if (novaSenha != null && !novaSenha.isBlank()) {
-                            // Se o front não mandar confirmarSenha → erro
-                            if (confirmarSenha == null) {
-                                return ResponseEntity.badRequest().body(
-                                        Map.of("erro", "É necessário confirmar a senha."));
-                            }
-                            // Se as senhas não baterem → erro
-                            if (!novaSenha.equals(confirmarSenha)) {
-                                return ResponseEntity.badRequest().body(
-                                        Map.of("erro", "As senhas não coincidem."));
-                            }
 
-                            usuarioExistente.setSenha(passwordEncoder.encode(novaSenha));
+                        if (confirmarSenha == null) {
+                            return ResponseEntity.badRequest().body(
+                                    Map.of("erro", "É necessário confirmar a senha."));
                         }
+
+                        if (!novaSenha.equals(confirmarSenha)) {
+                            return ResponseEntity.badRequest().body(
+                                    Map.of("erro", "As senhas não coincidem."));
+                        }
+
+                        usuarioExistente.setSenha(passwordEncoder.encode(novaSenha));
+                    }
+
+                    // 🔥 ATUALIZAÇÃO DOS CAMPOS NOVOS
+
+                    if (body.containsKey("inadimplente")) {
+                        usuarioExistente.setInadimplente((Boolean) body.get("inadimplente"));
+                    }
+
+                    if (body.containsKey("historicoInadimplencia")) {
+                        usuarioExistente.setHistoricoInadimplencia((Integer) body.get("historicoInadimplencia"));
+                    }
+
+                    if (body.containsKey("riscoAlto")) {
+                        usuarioExistente.setRiscoAlto((Boolean) body.get("riscoAlto"));
                     }
 
                     usuarioRepository.save(usuarioExistente);

@@ -19,6 +19,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/usuarios/**").permitAll()
@@ -30,13 +31,27 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/propostas/**").permitAll()
                         .requestMatchers("/investimentos/**").permitAll()
                         .requestMatchers("/saldos/**").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/usuarios/**").permitAll()                        
-                        .requestMatchers("/parcelas/**").permitAll()                        
+                        .requestMatchers(HttpMethod.PUT, "/usuarios/**").permitAll()
+                        .requestMatchers("/parcelas/**").permitAll()
                         .requestMatchers("/dividas/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/formularios/usuario/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+
+    }
+
+    @Bean
+    public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+        var config = new org.springframework.web.cors.CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOrigin("http://localhost:3000"); // frontend
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+
+        var source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }

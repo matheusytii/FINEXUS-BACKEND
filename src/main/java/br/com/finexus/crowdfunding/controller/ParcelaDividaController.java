@@ -29,16 +29,52 @@ public class ParcelaDividaController {
     @Autowired
     private SaldoRepository saldoRepository;
 
-    // 🔹 Listar parcelas por dívida
-    @GetMapping("/divida/{idDivida}")
-    public ResponseEntity<?> listar(@PathVariable Long idDivida) {
-        if (dividaRepository.findById(idDivida).isEmpty())
-            return ResponseEntity.badRequest().body("Dívida não encontrada.");
+    @Autowired
+    private UsuarioRepository usuarioRepository; // <-- AGORA ESTÁ CORRETO!
 
-        return ResponseEntity.ok(parcelaRepository.findByDividaId(idDivida));
+    // =======================================================
+    // MÉTODO QUE ATUALIZA PARCELAS VENCIDAS AUTOMATICAMENTE
+    // =======================================================
+    private void atualizarStatusVencidas(List<ParcelaDivida> parcelas) {
+        LocalDate hoje = LocalDate.now();
+
+        for (ParcelaDivida parcela : parcelas) {
+
+            if (parcela.getStatus() != StatusParcela.PAGA &&
+                parcela.getVencimento().isBefore(hoje)) {
+
+                parcela.setStatus(StatusParcela.VENCIDA);
+                parcelaRepository.save(parcela);
+
+                Usuario tomador = parcela.getDivida().getTomador();
+
+                tomador.setInadimplente(true);
+                tomador.setHistoricoInadimplencia(
+                        tomador.getHistoricoInadimplencia() + 1
+                );
+                tomador.setRiscoAlto(true); // COR DE PERFIL (vermelho)
+
+                usuarioRepository.save(tomador);
+            }
+        }
     }
 
-    // Gerar boleto da parcela (simulado igual investimento)
+   
+    @GetMapping("/divida/{idDivida}")
+    public ResponseEntity<?> listar(@PathVariable Long idDivida) {
+
+        Optional<Divida> dividaOpt = dividaRepository.findById(idDivida);
+        if (dividaOpt.isEmpty())
+            return ResponseEntity.badRequest().body("Dívida não encontrada.");
+
+        List<ParcelaDivida> parcelas = parcelaRepository.findByDividaId(idDivida);
+
+        // 🔥 Atualiza automaticamente as atrasadas
+        atualizarStatusVencidas(parcelas);
+
+        return ResponseEntity.ok(parcelas);
+    }
+
     @GetMapping("/{idParcela}/boleto")
     public ResponseEntity<byte[]> gerarBoleto(@PathVariable Long idParcela) throws Exception {
 

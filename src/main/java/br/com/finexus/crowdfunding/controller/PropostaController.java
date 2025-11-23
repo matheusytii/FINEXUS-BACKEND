@@ -92,10 +92,26 @@ public class PropostaController {
             jurosBase = 7.5; // Risco muito alto
 
         double jurosFinal = jurosBase + (proposta.getPrazoMeses() * 0.02);
-        proposta.setTaxaJuros(jurosFinal); // usa o setter existente
+        proposta.setTaxaJuros(jurosFinal);
+
+        // Aumento de juros por inadimplência prévia
+        if (usuario.isInadimplente()) {
+            int h = usuario.getHistoricoInadimplencia();
+
+            if (h >= 5)
+                proposta.setTaxaJuros(proposta.getTaxaJuros() + 5.0);
+            else if (h >= 3)
+                proposta.setTaxaJuros(proposta.getTaxaJuros() + 2.5);
+            else if (h >= 1)
+                proposta.setTaxaJuros(proposta.getTaxaJuros() + 1.0);
+        }
 
         // --- VALOR TOTAL (juros compostos) ---
-        double total = proposta.getValorSolicitado() * Math.pow(1 + (jurosFinal / 100), proposta.getPrazoMeses());
+        double taxaCorrigida = proposta.getTaxaJuros(); // agora inclui inadimplência
+
+        double total = proposta.getValorSolicitado()
+                * Math.pow(1 + (taxaCorrigida / 100), proposta.getPrazoMeses());
+
         proposta.setValorTotalPagar(total);
 
         Proposta salva = propostaRepository.save(proposta);

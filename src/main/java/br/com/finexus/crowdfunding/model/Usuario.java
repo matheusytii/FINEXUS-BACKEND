@@ -37,12 +37,40 @@ public class Usuario {
     @Column(length = 14, unique = true)
     private String cpf;
 
+    private boolean inadimplente = false;
+    private int historicoInadimplencia = 0;
+    private boolean riscoAlto = false;
+
     @OneToMany(mappedBy = "solicitante", cascade = CascadeType.ALL)
     @JsonManagedReference("usuario-proposta")
     private List<Proposta> propostas = new ArrayList<>();
 
-
     // getters e setters
+
+    public boolean isInadimplente() {
+        return inadimplente;
+    }
+
+    public void setInadimplente(boolean inadimplente) {
+        this.inadimplente = inadimplente;
+    }
+
+    public boolean isRiscoAlto() {
+        return riscoAlto;
+    }
+
+    public void setRiscoAlto(boolean riscoAlto) {
+        this.riscoAlto = riscoAlto;
+    }
+
+    public int getHistoricoInadimplencia() {
+        return historicoInadimplencia;
+    }
+
+    public void setHistoricoInadimplencia(int historicoInadimplencia) {
+        this.historicoInadimplencia = historicoInadimplencia;
+    }
+
     public Long getId() {
         return id;
     }
