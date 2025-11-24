@@ -41,7 +41,7 @@ public class ParcelaDividaController {
         for (ParcelaDivida parcela : parcelas) {
 
             if (parcela.getStatus() != StatusParcela.PAGA &&
-                parcela.getVencimento().isBefore(hoje)) {
+                    parcela.getVencimento().isBefore(hoje)) {
 
                 parcela.setStatus(StatusParcela.VENCIDA);
                 parcelaRepository.save(parcela);
@@ -50,8 +50,7 @@ public class ParcelaDividaController {
 
                 tomador.setInadimplente(true);
                 tomador.setHistoricoInadimplencia(
-                        tomador.getHistoricoInadimplencia() + 1
-                );
+                        tomador.getHistoricoInadimplencia() + 1);
                 tomador.setRiscoAlto(true); // COR DE PERFIL (vermelho)
 
                 usuarioRepository.save(tomador);
@@ -59,7 +58,6 @@ public class ParcelaDividaController {
         }
     }
 
-   
     @GetMapping("/divida/{idDivida}")
     public ResponseEntity<?> listar(@PathVariable Long idDivida) {
 
@@ -244,6 +242,17 @@ public class ParcelaDividaController {
         parcela.setStatus(StatusParcela.PAGA);
         parcela.setDataPagamento(LocalDate.now());
         parcelaRepository.save(parcela);
+
+        boolean algumaParcelaPaga = parcelaRepository.existsByDividaIdAndStatus(divida.getId(), StatusParcela.PAGA);
+
+        if (!algumaParcelaPaga && proposta.getStatus() == StatusProposta.FINANCIADA) {
+            proposta.setStatus(StatusProposta.EM_PAGAMENTO);
+            // se usar repository:
+            // propostaRepository.save(proposta);
+
+            // OU se a entidade estiver gerenciada pelo JPA (provavelmente está):
+            divida.setProposta(proposta);
+        }
 
         // ======================================================
         // 2) PAGAR APENAS INVESTIDORES QUE ESTÃO NA DIVIDA
