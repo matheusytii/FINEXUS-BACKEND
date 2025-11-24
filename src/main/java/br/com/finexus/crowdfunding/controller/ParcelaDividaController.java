@@ -238,20 +238,18 @@ public class ParcelaDividaController {
 
         saldoTomador.setValor(saldoTomador.getValor() - parcela.getValor());
         saldoRepository.save(saldoTomador);
+        boolean existiaParcelaPagaAntes = parcelaRepository
+                .existsByDividaIdAndStatus(divida.getId(), StatusParcela.PAGA);
 
+        // 2) Agora sim paga esta parcela
         parcela.setStatus(StatusParcela.PAGA);
         parcela.setDataPagamento(LocalDate.now());
         parcelaRepository.save(parcela);
 
-        boolean algumaParcelaPaga = parcelaRepository.existsByDividaIdAndStatus(divida.getId(), StatusParcela.PAGA);
-
-        if (!algumaParcelaPaga && proposta.getStatus() == StatusProposta.FINANCIADA) {
+        // 3) Se NÃO existia nenhuma antes e a proposta está FINANCIADA → muda para EM
+        // PAGAMENTO
+        if (!existiaParcelaPagaAntes && proposta.getStatus() == StatusProposta.FINANCIADA) {
             proposta.setStatus(StatusProposta.EM_PAGAMENTO);
-            // se usar repository:
-            // propostaRepository.save(proposta);
-
-            // OU se a entidade estiver gerenciada pelo JPA (provavelmente está):
-            divida.setProposta(proposta);
         }
 
         // ======================================================
