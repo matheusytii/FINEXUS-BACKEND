@@ -174,4 +174,9 @@ public class PropostaController {
     public ResponseEntity<List<Proposta>> listarTodas() {
         return ResponseEntity.ok(propostaRepository.findAll());
     }
+
+    @GetMapping("/abertas")
+    public ResponseEntity<List<Proposta>> listarAbertas() {
+        return ResponseEntity.ok(propostaRepository.findByStatus(StatusProposta.ABERTA));
+    }
 }
