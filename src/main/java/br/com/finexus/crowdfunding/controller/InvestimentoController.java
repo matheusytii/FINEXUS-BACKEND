@@ -2,6 +2,7 @@ package br.com.finexus.crowdfunding.controller;
 
 import br.com.finexus.crowdfunding.model.*;
 import br.com.finexus.crowdfunding.repository.*;
+import br.com.finexus.crowdfunding.dto.InvestimentoDTO;
 import br.com.finexus.crowdfunding.dto.InvestimentoRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -370,11 +371,43 @@ public class InvestimentoController {
     }
 
     // Listar por investidor
-    @GetMapping("/investidor/{idInvestidor}")
-    public ResponseEntity<?> listarPorInvestidor(@PathVariable Long idInvestidor) {
-        Optional<Usuario> investidor = usuarioRepository.findById(idInvestidor);
-        if (investidor.isEmpty())
-            return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(investimentoRepository.findByInvestidor(investidor.get()));
+   @GetMapping("/investidor/{idInvestidor}")
+public ResponseEntity<?> listarPorInvestidor(@PathVariable Long idInvestidor) {
+
+    Optional<Usuario> investidor = usuarioRepository.findById(idInvestidor);
+    if (investidor.isEmpty()) {
+        return ResponseEntity.notFound().build();
     }
+
+    List<Investimento> investimentos = investimentoRepository.findByInvestidor(investidor.get());
+
+    List<InvestimentoDTO> dtos = investimentos.stream().map(inv -> {
+
+        Proposta p = inv.getProposta();
+        Usuario tomador = p.getSolicitante();
+
+        return new InvestimentoDTO(
+            inv.getId(),
+            inv.getValorInvestido(),
+            inv.getDataInvestimento(),
+            inv.getRendimentoEsperado(),
+            inv.getStatus().name(),
+            inv.getQrCodeUrl(),
+            inv.getInvestidor().getId(),
+            p.getId(),
+            tomador.getId(),
+            p.getNomeNegocio(),
+            p.getCnpj(),
+            p.getPrazoMeses(),
+            p.getValorSolicitado(),
+            p.getSaldoInvestido(),
+            p.getTaxaJuros(),
+            p.getStatus().name(),
+            tomador.getNome(),
+            inv.getInvestidor().getNome()
+        );
+    }).toList();
+
+    return ResponseEntity.ok(dtos);
+}
 }
