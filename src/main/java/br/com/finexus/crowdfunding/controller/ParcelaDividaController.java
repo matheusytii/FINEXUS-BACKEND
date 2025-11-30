@@ -225,29 +225,22 @@ public class ParcelaDividaController {
         if (parcela.getStatus() == StatusParcela.PAGA)
             return ResponseEntity.badRequest().body("Esta parcela já está paga.");
 
-        // ======================================================
-        // 1) DESCONTAR SALDO DO TOMADOR
-        // ======================================================
+        // 1) Validar tomador dono da parcela
+        if (!divida.getTomador().getId().equals(idTomador))
+            return ResponseEntity.badRequest().body("Esta parcela não pertence a este tomador.");
 
-        Saldo saldoTomador = saldoRepository.findByUsuarioId(idTomador);
-        if (saldoTomador == null)
-            return ResponseEntity.badRequest().body("O tomador não possui saldo.");
+        if (parcela.getStatus() == StatusParcela.PAGA)
+            return ResponseEntity.badRequest().body("Esta parcela já está paga.");
 
-        if (saldoTomador.getValor() < parcela.getValor())
-            return ResponseEntity.badRequest().body("Saldo insuficiente.");
-
-        saldoTomador.setValor(saldoTomador.getValor() - parcela.getValor());
-        saldoRepository.save(saldoTomador);
+        // 2) Apenas marcar pagamento (PIX/BOLETO já pago externamente)
         boolean existiaParcelaPagaAntes = parcelaRepository
                 .existsByDividaIdAndStatus(divida.getId(), StatusParcela.PAGA);
 
-        // 2) Agora sim paga esta parcela
         parcela.setStatus(StatusParcela.PAGA);
         parcela.setDataPagamento(LocalDate.now());
         parcelaRepository.save(parcela);
 
-        // 3) Se NÃO existia nenhuma antes e a proposta está FINANCIADA → muda para EM
-        // PAGAMENTO
+        // 3) Se for a primeira parcela paga → mudar status
         if (!existiaParcelaPagaAntes && proposta.getStatus() == StatusProposta.FINANCIADA) {
             proposta.setStatus(StatusProposta.EM_PAGAMENTO);
         }
