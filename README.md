@@ -127,14 +127,37 @@ Configure no painel:
 
 ------------------------------------------------------------------------
 
-## 🚀 Como Rodar Localmente
+# FINEXUS-BACKEND — Como Rodar Localmente
 
-### Pré‑requisitos
+## 📌 Caminho rápido pra deixar tudo funcionando
 
--   Java 17+
--   Maven 3.9+
--   MySQL
--   Variáveis configuradas
+| Passo | O que fazer | Detalhe útil |
+|------|-------------|---------------|
+| **1. Ter instalado** | Java 17+, Maven 3.9+, Gradle 8+ | O trio que faz o projeto respirar. |
+| **2. Abrir a IDE** | Visual Studio Code | Não precisa luxo, só abrir o projeto. |
+| **3. Clonar o projeto** | `git clone https://github.com/matheusytii/FINEXUS-BACKEND.git | Traz o código pra sua máquina. |
+| **4. Entrar na pasta** | `cd FINEXUS-BACKEND| Agora você está dentro do projeto. |
+| **5. Instalar dependências** | `mvnw clean install | O Maven baixa tudo o que o projeto precisa. |
+| **6. Ajustar o banco** | `spring.datasource.url=jdbc:mysql://localhost:3306/seu_banco | Coloque o nome do seu banco aqui. |
+| | `spring.datasource.username=SEU_USUARIO | Seu usuário do MySQL. |
+| | `spring.datasource.password=SUA_SENHA | Sua senha do MySQL. |
+| **7. Rodar o projeto** | `mvnw spring-boot:ru | Pronto, a aplicação sobe em http://localhost:8080 |
+
+
+
+
+
+
+---
+
+## ✔️ Verificação (no terminal)
+
+```cmd
+java -version
+mvn -v
+gradle -v
+
+
 
 ### 1. Clone o repositório
 
