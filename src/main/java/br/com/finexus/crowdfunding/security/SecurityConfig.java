@@ -46,7 +46,8 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         var config = new org.springframework.web.cors.CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:3000"); // frontend
+        config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin("https://finexus-frontend-bradesco-pd-ejhy.vercel.app");// frontend
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
